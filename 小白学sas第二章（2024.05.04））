@@ -1,0 +1,333 @@
+libname ddw "C:\Users\ddwf\Desktop\学习\sas练习";     /*sas永久数据集ddw的建立*/
+
+/*--------------sas的变量输入格式---------------------*/
+data ddw.test1;
+	input city :$18. zone $;
+
+	/*“$”的作用是标注字符型变量，来区别数值型变量*/
+	/*“冒号”的作用是提醒sas遇到空格，变量的宽度就读完了*/
+	cards;
+山东省蓬莱市 0536
+山东省青岛市市南区 0536
+;
+
+proc print data=ddw.test1;
+run;
+
+data ddw.test2;
+	input city :&$50. zone $;
+
+	/*“&”的作用是区分变量间（city和zone间的）和变量内（city中省市）的空格，变量间以两个及以上的空格来区分*/
+	cards;
+山东省 蓬莱市  0536
+山东省 青岛市 市南区  0536
+;
+
+proc print;
+run;
+
+/*--------------sas的变量输出格式---------------------*/
+/*指定输入格式会改变变量的值，而指定输出格式只会改变显示的样子*/
+data ddw.test3;
+	input num cost prop;
+	format num 5.2 cost comma12.1 prop percent8.2;
+
+	/*“w.d”是数值型变量的格式，w为总宽度，d为小数的位数*/
+	/*“commaw.d”可将数值的整数部分从右向左每三位用逗号隔开*/
+	datalines;
+50 10205600 0.1236
+45 9580000 0.0361
+;
+
+proc print;
+run;
+
+/*--------------自定义输入和输出格式---------------------*/
+proc format;
+	invalue $grade 1="Freshman" 2="Sophomore" 3="Junior" 4="Senior";
+
+	/*invalue可以定义输入格式，精简输入*/
+	value fscore low-<60="不及格" 60-<80="及格" 80-high="优秀";
+
+	/*value可以定义输出格式，格式化输出*/
+	/*low为最小值，high为最大值*/
+data ddw.test4;
+	input id grade:$grade20. score;
+	format score fscore.;
+	datalines;
+1 1 60
+2 4 59
+3 3 80
+4 2 79
+;
+
+proc print;
+run;
+
+proc format;
+	picture pft low-high="0,000,000"(prefix="￥");
+
+	/*format是定义值，picture则是定义显示的样式*/
+	picture pro low-high="09.99%";
+run;
+
+data ddw.test5;
+	input profit prop;
+	format profit pft. prop pro.;
+	datalines;
+298630 16.72
+365800 21.30
+;
+
+proc print;
+run;
+
+/*----------利用if-then语句产生新变量------------*/
+data ddw.test6;
+	input id lx$;
+
+	if lx in("有效","显效","痊愈") then
+		lx1="有效";
+	else lx1="无效";
+	datalines;
+1 显效
+2 有效
+3 无效
+4 痊愈
+;
+
+proc print;
+run;
+
+/*----------利用retain语句和累加语句产生新变量------------*/
+data ddw.test7;
+	retain year 1996 id o;
+
+	/*retain指定初始值*/
+	year+1;
+	id+1;
+	input age;
+	datalines;
+23
+24
+27
+;
+
+proc print;
+run;
+
+/*----------利用do循环产生新变量------------*/
+data ddw.test8;
+	do count=1 to 5;
+		input age;
+		output;
+	end;
+
+	cards;
+23
+24
+27
+;
+
+proc print;
+run;
+
+/*----------@符号在输入方式中的应用------------*/
+data ddw.test9;
+	input id age@@;
+
+	/*“@@”强制sas往右读取数据*/
+	cards;
+1 23 2 29 3 49 4 36
+;
+
+proc print;
+run;
+
+/*----------sas函数应用技巧------------*/
+/*----------与字符有关的函数------------*/
+data ddw.test10;
+	input iden:$18.;
+
+	if length(iden)=18 then
+		gen=substrn(iden,17,1);
+
+	/*substrn可以用来对变量进行切片和提取*/
+	else gen=substrn(iden,15,1);
+
+	if mod(gen,2)=1 then
+		gender="男";
+	else gender="女";
+	datalines;
+36053319720613591X
+360533801215792
+360533198208254533
+360533851009226
+;
+
+proc print;
+run;
+
+data ddw.test11;
+	input book:&$100.;
+	sas=find(book,"sas","i");
+
+	/*find可用来查找变量中的字符，返回所在的位置，若无则输出0，i表示忽略字符的大小写*/
+	if sas>0 then
+		class="SAS书";
+	else class="其他";
+	datalines;
+Survival Analysis Using SAS
+Matlab程序设计
+Spss数据分析
+SAS应用分析
+The Little SAS Book
+;
+
+proc print;
+run;
+
+data ddw.test12;
+	input type$@@;
+	alpha=anyalpha(type);
+
+	/*anyalpha查找变量中的字母，返回第一个字母的位置*/
+	digit=anydigit(type);
+
+	/*anydigit查找变量中的数字，返回第一个数字的位置*/
+	xh=substrn(type,alpha,digit-alpha);
+	bh=substrn(type,digit,length(type)-digit+1);
+	cards;
+TP340 KS320 B3510 C560 H430
+;
+
+proc print;
+run;
+
+data ddw.test13;
+	input id lx$;
+	lx1=tranwrd(lx,"显效","有效");
+
+	/*tranwrd替换变量中的字符*/
+	lx1=tranwrd(lx1,"痊愈","有效");
+	datalines;
+1 显效
+2 有效
+3 无效
+4 痊愈
+;
+
+proc print;
+run;
+
+data ddw.test14;
+	input type:$10. @@;
+	xh=compress(type,,"d");
+
+	/*compress可以用来去除变量中的字符或数字,d为数字，a为字符，k为保留*/
+	bh=compress(type,"（&）","a");
+	cards;
+（TP340） KS3&20 B35H10 C560 H430
+;
+
+proc print;
+run;
+
+data ddw.test15;
+	input prov$ city$ county$;
+	code1=cats(prov,city,county);
+	code2=catx("-",prov,city,county);
+	code3=prov||city||county;
+	datalines;
+37 05 02
+37 03 21
+37 06 13
+37 06 85
+;
+
+proc print;
+run;
+
+data ddw.test16;
+	input pj:&$1000.;
+	beauty=count(pj,"漂亮");
+	datalines;
+裙子很漂亮漂亮
+一点不漂亮
+垃圾
+666
+;
+
+proc print;
+run;
+
+data ddw.test17;
+	input id gender$ age;
+	mgender=missing(gender);
+
+	/*	missing函数可用来统计缺失值*/
+	mage=missing(age);
+	datalines;
+	1 f 60
+	2 m 59
+	3 f .
+	4 . 48
+	;
+
+proc print;
+run;
+
+/*-----------与日期有关的函数------------*/
+data ddw.test18;
+	input year1$ month1$ day1$ year2$ month2$ day2$;
+	date1=mdy(month1,day1,year1);
+
+	/*将数值合并为日期格式的变量*/
+	date2=mdy(month2,day2,year2);
+	format date1 date2 yymmdds10.;
+	ydif=yrdif(date1,date2,"actual");
+
+	/*计算两个日期间（date2-date1，可为负值）以年为单位的差值，actual表示实际天数*/
+	ddif=datdif(date1,date2,"actual");
+
+	/*计算两个日期间以天为单位的差值*/
+	datalines;
+2003 05 21 2014 03 11
+2003 03 10 2004 01 22
+2013 06 05 2014 05 06
+2013 07 08 2014 04 13
+;
+
+proc print;
+run;
+
+data ddw.test19;
+	input year1$ month1$ day1$ year2$ month2$ day2$;
+	date1=catx("/",year1,month1,day1);
+	date2=catx("/",year2,month2,day2);
+	d1=input(date1,yymmdd10.);
+	d2=input(date2,yymmdd10.);
+	dif=d2-d1;
+	datalines;
+2003 05 21 2014 03 11
+2003 03 10 2004 01 22
+2013 06 05 2014 05 06
+2013 07 08 2014 04 13
+;
+
+proc print;
+run;
+
+/*-----------与概率和分布有关的函数------------*/
+data ddw.test20;
+	p1=cdf("poisson",1,5);
+
+	/*计算均值为5的poisson分布中，发生次数<=1的概率*/
+	p2=cdf("normal",30,60,10);
+
+	/*计算在均值60，标准差10的前提下,<=30的概率*/
+	p3=cdf("binomial",3,0.3,10);
+
+	/*计算在发生概率0.3的前提下，10例总数中出现<=3例事件的累计概率*/
+proc print;
+run;
