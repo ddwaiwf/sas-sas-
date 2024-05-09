@@ -1,0 +1,423 @@
+/*-----------SAS数据清洗与加工-----------*/
+/*-----------数据合并-----------*/
+libname ddw "C:\Users\ddwf\Desktop\学习\sas练习";
+
+data ddw.test21;
+	input id name$ gender age height weight;
+	datalines;
+1 ZHXH 2 25 160 75
+2 DIYT 2 33 166 85
+3 LTHZ 1 31 . 61
+4 SUKE 1 26 178 80
+5 CHXL 2 27 170 70
+;
+
+proc print;
+run;
+
+data ddw.test22;
+	input id time1:$10. y1 y2 y3 y4 y5;
+	time=input(time1,yymmdd10.);
+	format time yymmdd10.;
+	cards;
+1 2012/6/1 3 2 4 3 3
+2 2012/4/8 2 4 5 2 5
+3 2012/5/19 3 . 2 3 2
+4 2012/6/14 5 2 4 . 3
+5 2012/6/15 1 2 1 4 4
+;
+
+proc print;
+run;
+
+data ddw.test23;
+	input id name$ gender age ht wt;
+	datalines;
+6 ZHLI 2 18 167 55
+7 MAJP 2 21 165 54
+8 ZHZX 2 24 168 54
+9 SUHW 2 21 163 156
+10 ZHLI 2 37 1.62 53
+;
+
+proc print;
+run;
+
+data ddw.test24;
+	input id time1$10. y1 y2 y3 y4 y5;
+	time=input(time1,yymmdd10.);
+	format time yymmdd10.;
+	cards;
+6 2012/06/13 1 1 0 5 1
+7 2012/01/24 3 2 2 5 6
+8 2011/06/15 3 4 5 3 5
+10 2012/03/22 1 3 3 3 4
+;
+
+proc print;
+run;
+
+data ddw.test25;
+	set ddw.test21 ddw.test23;
+
+	/*set函数可以对相同变量的数据进行纵向合并*/
+proc print;
+run;
+
+data ddw.test26;
+	set ddw.test21 (rename=(height=ht weight=wt)) ddw.test23;
+
+	/*可使用rename选项将变量名不同的两个变量合并*/
+proc print;
+run;
+
+data ddw.test27;
+	set ddw.test22 ddw.test24;
+	drop time1;
+
+	/*删除多余的time1变量*/
+proc print;
+run;
+
+data ddw.test28;
+	set ddw.test22(in=a) ddw.test24(in=b);
+
+	/*产生a,b两个临时变量，记录每一行在哪个数据集中*/
+	a2=a;
+	b2=b;
+
+proc print data=ddw.test28;
+run;
+
+data ddw.test29;
+	merge ddw.test26 ddw.test28;
+
+	/*merge可以根据锚定变量横向合并观测值*/
+	by id;
+	drop a2 b2;
+
+proc print;
+run;
+
+data ddw.test30;
+	merge ddw.test26(in=d1) ddw.test28(in=d2);
+	by id;
+	drop a2 b2;
+
+	if d1=1 and d2=1;
+
+	/*可以删除无交集的记录*/
+proc print;
+run;
+
+data ddw.test31;
+	set ddw.test30;
+
+	if id=8 then
+		do;
+			gender=1;
+			age=30;
+		end;
+
+	if id=10 then
+		age=20;
+	drop time1;
+
+	/*对id为8的观测值进行更改*/
+proc print;
+run;
+
+/*-----------数据对比-----------*/
+proc compare base=ddw.test30 compare=ddw.test31 nosummary;
+	/*使用proc compare调用数据比较过程，以test30为被比较的数据集，*/
+	/*test31为比较的数据集，nosummary不显示一些概括性的结果*/
+	by id;
+run;
+
+proc compare base=ddw.test30 compare=ddw.test31 transpose nosummary;
+	/*使用proc transpose选项配合id语句可以生成比较的调查表，对不一致的记录较多的情况有奇效*/
+	by id;
+	id id;
+run;
+
+/*----------------数据清洗---------------------*/
+proc sort data=ddw.test26;
+	/*使用proc sort对数据集进行逆序排序*/
+	by descending id;
+
+	/*若无descending，则为升序排序*/
+proc print;
+run;
+
+data ddw.test32;
+	set ddw.test31;
+
+	if id=6 then
+		name="ZHXH";
+
+proc sort data=ddw.test32 nouniquekey out=ddw.test33;
+	/*nouniquekey选项代表输出重复值*/
+	by name gender;
+
+	/*定义name和gender相同的值为重复值*/
+proc print;
+run;
+
+proc sort data=ddw.test32 nodupkey out=ddw.test34;
+	/*nodupkey选项表示输出唯一值，但这种操作是有风险的，*/
+	/*因为同名同姓还是挺常见的，直接删除观测值会做成数据信息损失*/
+	by name gender;
+
+proc print;
+run;
+
+data ddw.test35;
+	input id gender age time yymmdd10. sbp;
+	format time yymmdd10.;
+	cards;
+1 1 51 2010/01/12 150
+1 1 51 2010/02/12 147
+1 1 51 2010/03/14 142
+2 2 59 2010/01/09 163
+2 2 59 2010/02/10 162
+2 2 59 2010/03/17 160
+2 2 59 2010/04/16 151
+;
+
+proc sort;
+	by id time;
+run;
+
+data ddw.test35;
+	set ddw.test35;
+	by id;
+	retain firstsbp;
+
+	/*保留该值到下一个观测，否则除了首次观测，其他均为缺失值*/
+	if first.id then
+		firstsbp=sbp;
+
+	/*first.变量表示变量某个值的第一个观测，last.变量则相反*/
+	difsbp=sbp-firstsbp;
+
+proc print;
+run;
+
+data ddw.test36;
+	set ddw.test31;
+	array cha[1] name;
+
+	/*array+数组名[下标]*/
+	if missing(cha[1]) then
+		output;
+	array num[10] gender age ht wt time y1-y5;
+
+	do i=1 to 10;
+		if missing(num[i]) then
+			output;
+	end;
+
+proc sort data=ddw.test36 out=ddw.test37 nodupkey;
+	/*将重复输出的观测值做唯一输出*/
+	by id;
+
+proc print;
+run;
+
+/*-------------查找缺失值的万能程序-------------*/
+data ddw.test38;
+	set ddw.test31;
+
+	if id=4 then
+		do;
+			y4=1;
+			name=" ";
+		end;
+
+	array ch[*] _CHARACTER_;
+
+	do i=1 to dim(ch);
+		/*_character_表示数据集中所有的字符型变量*/
+		if missing(ch[i]) then
+			output;
+	end;
+
+	array num[*] _numeric_;
+
+	/*_numeric_表示数据集中左右的数值型变量*/
+	do i=1 to dim(num);
+		if missing(num[i]) then
+			output;
+	end;
+
+proc sort data=ddw.test38 nodupkey;
+	by id;
+
+proc print;
+run;
+
+data ddw.test39;
+	set ddw.test31;
+
+	if (y5 not in(1,2,3,4,.));
+
+	/*此时where可以替换if*/
+proc print;
+run;
+
+data ddw.test40;
+	set ddw.test31;
+
+	if _n_<7;
+
+	/*当使用自动变量时，只能用if;*/
+	if gender=2 then
+		xb="女";
+
+	/*当指定的条件变量是新产生的变量时，只能用if*/
+proc print;
+run;
+
+data ddw.test41;
+	set ddw.test31;
+	where (ht not between 150 and 200) and (ht is not missing);
+
+	/*当使用某些特殊运算符时，只能用where，如between…and,contain,like,is null/missing等*/
+proc print;
+run;
+
+data ddw.test42;
+	set ddw.test31;
+	where name like "Z___";
+
+	/*此处为三个下划线，代表以Z开头的字符*/
+proc print;
+run;
+
+data ddw.test43;
+	set ddw.test31;
+	where name contains "L";
+
+	/*等同于like "%L%"*/
+proc print;
+run;
+
+data ddw.test44;
+	set ddw.test31;
+
+proc print;
+	where y5 not in(1,2,3,4,.);
+
+	/*当调用proc过程，选择部分观测执行该过程，只能用where*/
+run;
+
+/*-----------查找异常值的万能程序-----------*/
+%let data=ddw.test31;
+%let id=id;
+
+%macro outline(var=,low=,high=);
+
+	data ddw.test45;
+		set &data.(keep=&id. &var.);
+
+		/*只保留数据集中的id和var*/
+		length variable $20. reason $20.;
+		variable="&var.";
+		value=&var.;
+
+		if &var.<&low. and not missing(&var.) then
+			do;
+				reason="过低";
+				output;
+			end;
+		else if &var.>&high. and not missing(&var.) then
+			do;
+				reason="过高";
+				output;
+			end;
+
+		drop &var.;
+
+	proc append base=ddw.test46 data=ddw.test45;
+	run;
+
+%mend outline;
+
+%outline(var=ht,low=150,high=200);
+%outline(var=wt,low=40,high=100);
+%outline(var=y1,low=1,high=5);
+%outline(var=y2,low=1,high=5);
+%outline(var=y3,low=1,high=5);
+%outline(var=y4,low=1,high=5);
+%outline(var=y5,low=1,high=5);
+
+proc print data=ddw.test46;
+run;
+
+data ddw.test47;
+	set ddw.test31;
+
+	if id=10 then
+		ht=162;
+
+	/*对异常值进行填补*/
+	if id=6 then
+		y3=1;
+
+	if id=7 then
+		y5=5;
+
+proc print;
+run;
+
+proc mi data=ddw.test47 out=ddw.test48 round=1 1 1 minimum=150 1 1 maximum=200 5 5;
+	/*proc mi为多重填补过程*/
+	/*round代表精度，为1时指输出整数，为0.1则代表小数点后一位，mininim和maxinum代表最小值最大值*/
+	MCMC;
+
+	/*MCMC是指马尔科夫链蒙特卡罗模拟方法产生一个抽样分布，作为缺失值的填补技术*/
+	var ht y2 y4;
+run;
+
+proc print data=ddw.test48;
+run;
+
+data ddw.test49;
+	input id ht y3 y5;
+	cards;
+10 163 . .
+7 . . 5
+6 . 1 .
+;
+
+proc sort data=ddw.test49;
+	by id;
+run;
+
+data ddw.test50;
+	update ddw.test31 ddw.test49;
+
+	/*可以使用update语句对指定数据进行修改*/
+	by id;
+
+proc print;
+run;
+
+proc univariate data=ddw.test48 noprint;
+	/*该过程可以输出一些简单的统计量，产生多次填补的均值并输出*/
+	class id;
+	var ht y2 y4;
+	output out=ddw.test51 mean=ht y2 y4;
+run;
+
+data ddw.test52;
+	update ddw.test47 ddw.test51;
+	by id;
+	ht=round(ht,1);
+
+	/*保留为整数*/
+	y2=round(y2,1);
+	y4=round(y4,1);
+
+proc print data=ddw.test52;
+run;
